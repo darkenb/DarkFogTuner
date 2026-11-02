@@ -1,0 +1,9 @@
+{
+    "name": "DarkFogTuner",
+    "version_number": "1.1.0",
+    "website_url": "https://github.com/darkenb/DarkFogTuner",
+    "description": "In-game panel (Ctrl+Shift+K) to change Dark Fog difficulty live: aggressiveness, attack frequency, fleet size and growth, spread, unit capacity and production, enemy damage and durability. English/Chinese/Turkish.",
+    "dependencies": [
+        "xiaoye97-BepInEx-5.4.17"
+    ]
+}
