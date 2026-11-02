@@ -11,7 +11,7 @@ namespace DarkFogTuner
 {
     public enum Language { Auto, English, Chinese, Turkish }
 
-    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.1.0")]
+    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.0.0")]
     public class Plugin : BaseUnityPlugin
     {
         const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Growth = 5, PowerThreat = 6, BattleThreat = 7, BattleExp = 8, Capacity = 9, Production = 10, EnemyDamage = 11, EnemyHealth = 12, NewLevel = 13, NewGrowth = 14;
