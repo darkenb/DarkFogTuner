@@ -20,6 +20,10 @@ Dark Fog zorluğunu oyun oynarken değiştirir. Oyundayken `Ctrl+Shift+K` ile pa
 
 Oyunun kendi ayarları kayıt dosyasında saklanır. Saldırı sıklığı, filo büyüklüğü, filo büyümesi, yayılma, birim kapasitesi, üretim, düşman hasarı ve dayanıklılığı ise config dosyasında galaksi başına saklanır; aynı galaksinin kayıtları bu değerleri paylaşır.
 
+## They Come From Void (DSP_Battle)
+
+Bu modla birlikte yükleme, kaydetme ve uzay saldırıları sorunsuz çalıştı. Düşman hasarı ve düşman dayanıklılığı ise ×1 dışındaki değerlerde henüz oyunda denenmedi. İki mod aynı hasar metotlarını yamaladığı için etkileri beklenmedik şekilde birleşebilir; örneğin kalıntı hasar bonusları veya kalkanlar farklı davranabilir. Böyle bir şey görürseniz ikisini ×1'e alıp [bildirin](https://github.com/darkenb/DarkFogTuner/issues).
+
 ## Sınırlar
 
 - Kovan sayısı ve başlangıçtaki kovanlar yeni oyun ayarlarından üretilir, sonradan değişmez; bunlar için yeni oyun ekranında UniverseGenTweaks kullanın.

@@ -22,6 +22,10 @@ Change Dark Fog difficulty while playing. Press `Ctrl+Shift+K` in a game to open
 
 The game's own settings are stored in your save. Attack frequency, fleet size, fleet growth, spread, unit capacity, production, enemy damage and durability are stored per galaxy in the config file, so saves of the same galaxy share them.
 
+## They Come From Void (DSP_Battle)
+
+Loading, saving and space attacks worked in a game with this mod. Enemy damage and enemy durability have not been tested in the game at values other than ×1 yet. Both mods patch the same damage methods, so their effects may combine in unexpected ways, for example relic damage bonuses or shields behaving differently. If you see this, set both back to ×1 and [report it](https://github.com/darkenb/DarkFogTuner/issues).
+
 ## Limits
 
 - Hive count and the hives present at the start are generated from the new game settings and cannot change later; use UniverseGenTweaks on the new game screen for those.
