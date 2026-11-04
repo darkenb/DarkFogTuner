@@ -1,6 +1,8 @@
 # DarkFogTuner
 
-Dark Fog zorluğunu oyun oynarken değiştirir. Oyundayken `Ctrl+Shift+K` ile paneli açın, kaydırıcıyı oynatıp fareyi bırakın; ayar o anda uygulanır. Kolay, Normal, Zor ve Aşırı düğmeleri her şeyi birden ayarlar. Kısayol ve dil `BepInEx/config/bug.dsp.darkfogtuner.cfg` dosyasındadır.
+Dark Fog zorluğunu oyun oynarken, oyunun kendi pencere görünümüyle değiştirir. Panel yalnız oyundayken açılır, Esc menüsünde ve ana menüde kapalıdır. Arayüz İngilizcedir. Oyundayken `Ctrl+Shift+K` ile paneli açın, kaydırıcıyı oynatıp fareyi bırakın; ayar o anda uygulanır. Kolay, Normal, Zor ve Aşırı düğmeleri her şeyi birden ayarlar. Kısayol `BepInEx/config/bug.dsp.darkfogtuner.cfg` dosyasındadır.
+
+Her kaydırıcıda Normal değerini gösteren bir işaret vardır. Çubuk bu işaretten başlar: turuncu Normal'den zor, mavi Normal'den kolay demektir. Normal'deki değerler soluk görünür, üzerinde olduğunuz ön ayarın düğmesi vurgulanır.
 
 | Ayar | Aralık | Ne yapar |
 |---|---|---|

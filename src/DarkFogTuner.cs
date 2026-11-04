@@ -6,12 +6,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection.Emit;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DarkFogTuner
 {
-    public enum Language { Auto, English, Chinese, Turkish }
-
-    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.0.0")]
+    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.3.1")]
     public class Plugin : BaseUnityPlugin
     {
         const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Growth = 5, PowerThreat = 6, BattleThreat = 7, BattleExp = 8, Capacity = 9, Production = 10, EnemyDamage = 11, EnemyHealth = 12, NewLevel = 13, NewGrowth = 14;
@@ -20,65 +19,69 @@ namespace DarkFogTuner
         // Must be the game's exact values: any other aggressiveness maps to no EAggressiveLevel.
         static readonly float[] AggressionValues = { -1f, 0f, 0.5f, 1f, 2f, 3f };
 
-        // en, zh, tr
-        static readonly string[][] AggressionNames =
-        {
-            new[] { "Dummy", "假人", "Kukla" }, new[] { "Passive", "被动", "Pasif" }, new[] { "Torpid", "迟钝", "Uyuşuk" },
-            new[] { "Normal", "正常", "Normal" }, new[] { "Sharp", "敏锐", "Keskin" }, new[] { "Rampage", "狂暴", "Öfkeli" },
-        };
+        static readonly string[] AggressionNames = { "Dummy", "Passive", "Torpid", "Normal", "Sharp", "Rampage" };
 
-        class Row { public string En, Zh, Tr; public float Min, Max; public bool Log, ZeroAtLeft, Whole; }
+        class Row { public string Name; public float Min, Max; public bool Log, ZeroAtLeft, Whole; }
 
         static readonly Row[] Rows =
         {
-            new Row { En = "Aggressiveness", Zh = "攻击性", Tr = "Agresiflik", Min = 0, Max = 5, Whole = true },
-            new Row { En = "Attack frequency", Zh = "攻击频率", Tr = "Saldırı sıklığı", Min = 0.1f, Max = 100, Log = true },
-            new Row { En = "Fleet size", Zh = "舰队规模", Tr = "Filo büyüklüğü", Min = 0.1f, Max = 20, Log = true },
-            new Row { En = "Fleet growth per wave", Zh = "舰队增长速度", Tr = "Filo büyüme hızı", Min = 0.1f, Max = 10, Log = true, ZeroAtLeft = true },
-            new Row { En = "Spread to other stars", Zh = "星际扩散", Tr = "Yıldızlara yayılım", Min = 0.01f, Max = 20, Log = true, ZeroAtLeft = true },
-            new Row { En = "Build and replication speed", Zh = "建造与复制速度", Tr = "Üreme ve inşa hızı", Min = 0.1f, Max = 10, Log = true },
-            new Row { En = "Power threat (ground bases)", Zh = "能源威胁（地面基地）", Tr = "Enerji tehdidi (yer üsleri)", Min = 0.01f, Max = 100, Log = true },
-            new Row { En = "Threat from combat", Zh = "战斗威胁", Tr = "Savaş tehdidi", Min = 0.01f, Max = 100, Log = true },
-            new Row { En = "Experience from combat", Zh = "战斗经验", Tr = "Savaş deneyimi", Min = 0.01f, Max = 20, Log = true },
-            new Row { En = "Unit capacity", Zh = "单位容量", Tr = "Birim kapasitesi", Min = 1, Max = 20, Log = true },
-            new Row { En = "Free unit production", Zh = "免费单位生产", Tr = "Bedava birim üretimi", Min = 1, Max = 50, Log = true },
-            new Row { En = "Enemy damage", Zh = "敌方伤害", Tr = "Düşman hasarı", Min = 0.1f, Max = 100, Log = true },
-            new Row { En = "Enemy durability", Zh = "敌方耐久", Tr = "Düşman dayanıklılığı", Min = 0.1f, Max = 100, Log = true },
-            new Row { En = "New hive level", Zh = "新巢穴等级", Tr = "Yeni kovan seviyesi", Min = 0, Max = 30, Whole = true },
-            new Row { En = "New hive head start", Zh = "新巢穴发展度", Tr = "Yeni kovan gelişimi", Min = 0, Max = 4 },
+            new Row { Name = "Aggressiveness", Min = 0, Max = 5, Whole = true },
+            new Row { Name = "Attack frequency", Min = 0.1f, Max = 100, Log = true },
+            new Row { Name = "Fleet size", Min = 0.1f, Max = 20, Log = true },
+            new Row { Name = "Fleet growth per wave", Min = 0.1f, Max = 10, Log = true, ZeroAtLeft = true },
+            new Row { Name = "Spread to other stars", Min = 0.01f, Max = 20, Log = true, ZeroAtLeft = true },
+            new Row { Name = "Build and replication speed", Min = 0.1f, Max = 10, Log = true },
+            new Row { Name = "Power threat (ground bases)", Min = 0.01f, Max = 100, Log = true },
+            new Row { Name = "Threat from combat", Min = 0.01f, Max = 100, Log = true },
+            new Row { Name = "Experience from combat", Min = 0.01f, Max = 20, Log = true },
+            new Row { Name = "Unit capacity", Min = 1, Max = 20, Log = true },
+            new Row { Name = "Free unit production", Min = 1, Max = 50, Log = true },
+            new Row { Name = "Enemy damage", Min = 0.1f, Max = 100, Log = true },
+            new Row { Name = "Enemy durability", Min = 0.1f, Max = 100, Log = true },
+            new Row { Name = "New hive level", Min = 0, Max = 30, Whole = true },
+            new Row { Name = "New hive head start", Min = 0, Max = 4 },
         };
 
         // NaN keeps the current value. Order follows Rows.
-        static readonly KeyValuePair<string[], float[]>[] Presets =
+        static readonly KeyValuePair<string, float[]>[] Presets =
         {
-            Preset("Easy", "简单", "Kolay", 2, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.2f, 0.2f, 0.2f, 1, 1, 0.5f, 0.5f),
-            Preset("Normal", "正常", "Normal", 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-            Preset("Hard", "困难", "Zor", 4, 1.5f, 1.5f, 1.5f, 1.5f, 2, 2, 2, 2, 2, 2, 2, 2),
-            Preset("Extreme", "极限", "Aşırı", 5, 10, 5, 5, 5, 10, 20, 20, 5, 10, 10, 5, 5),
+            Preset("Easy", 2, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.2f, 0.2f, 0.2f, 1, 1, 0.5f, 0.5f),
+            Preset("Normal", 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+            Preset("Hard", 4, 1.5f, 1.5f, 1.5f, 1.5f, 2, 2, 2, 2, 2, 2, 2, 2),
+            Preset("Extreme", 5, 10, 5, 5, 5, 10, 20, 20, 5, 10, 10, 5, 5),
         };
 
-        static KeyValuePair<string[], float[]> Preset(string en, string zh, string tr, params float[] v) =>
-            new KeyValuePair<string[], float[]>(new[] { en, zh, tr }, v.Concat(new[] { float.NaN, float.NaN }).ToArray());
+        const int NormalPreset = 1;
+
+        // First row of each group after the first; rows keep their order.
+        static readonly int[] GroupStarts = { 1, 5, 9, 13 };
+
+        static KeyValuePair<string, float[]> Preset(string name, params float[] v) =>
+            new KeyValuePair<string, float[]>(name, v.Concat(new[] { float.NaN, float.NaN }).ToArray());
 
         // Read by the patches from the game's worker threads.
         public static float AttackFrequency = 1f, FleetSizeFactor = 1f, FleetGrowthFactor = 1f, SpreadFactor = 1f, UnitCapacity = 1f, ProductionFactor = 1f, EnemyDamageFactor = 1f, EnemyHealthFactor = 1f;
 
         static ConfigEntry<KeyboardShortcut> hotkey;
-        static ConfigEntry<Language> language;
         static ConfigFile config;
         static long galaxy = NoGalaxy;
-        static bool open, dirty;
+        static bool dirty, syncing;
         static readonly float[] draft = new float[Rows.Length];
-        static Rect window = new Rect(60, 120, 500, 0);
-        public static bool MouseOverWindow;
-        static Texture2D panelTexture;
-        static GUIStyle panelStyle, labelStyle;
+        // Tokens from the game's own window: panel teal, line cyan, selection orange. Glass order: rest, hover, pressed, text.
+        static readonly Color Ink = new Color32(232, 246, 252, 255), Soft = new Color32(176, 208, 220, 255), Accent = new Color32(253, 150, 94, 255), AccentInk = new Color32(28, 14, 6, 255), Scrim = new Color32(4, 22, 30, 168), Well = new Color32(0, 10, 16, 120), Line = new Color32(167, 233, 255, 40);
+        static readonly Color[] Glass = { new Color32(167, 233, 255, 56), new Color32(167, 233, 255, 92), new Color32(167, 233, 255, 32), Ink };
+        static readonly Color Easier = new Color32(167, 233, 255, 255);
+        static GameObject win, content;
+        static Text noCombatText, summaryText;
+        static readonly Slider[] sliders = new Slider[Rows.Length];
+        static readonly Text[] valueTexts = new Text[Rows.Length];
+        static readonly Image[] deviations = new Image[Rows.Length];
+        static readonly UIButton[] presetButtons = new UIButton[Presets.Length];
 
         void Awake()
         {
             config = Config;
             hotkey = Config.Bind("General", "Hotkey", new KeyboardShortcut(KeyCode.K, KeyCode.LeftControl, KeyCode.LeftShift), "Opens and closes the panel.");
-            language = Config.Bind("General", "Language", Language.Auto, "Panel language. Auto follows the Windows language.");
             new Harmony("bug.dsp.darkfogtuner").PatchAll(typeof(Patches));
         }
 
@@ -88,19 +91,35 @@ namespace DarkFogTuner
         {
             long key = InGame ? GameMain.data.GetClusterSeedKey() : NoGalaxy;
             if (key != galaxy) { galaxy = key; LoadGalaxy(); }
-            if (key == NoGalaxy) { open = false; MouseOverWindow = false; return; }
+            // Only the panel stops here, the galaxy's factors stay loaded. Paused means the Esc menu; the game UI is closed on the main menu and while loading.
+            if (key == NoGalaxy || GameMain.isPaused || !UIRoot.instance.uiGame.active)
+            {
+                if (Open)
+                {
+                    if (dirty) Apply();
+                    win.SetActive(false);
+                }
+                return;
+            }
             if (hotkey.Value.IsDown() && !VFInput.inputing)
             {
-                open = !open;
-                if (open) ReadDraft();
+                if (win == null) Build();
+                win.SetActive(!win.activeSelf);
+                if (win.activeSelf)
+                {
+                    win.transform.SetAsLastSibling();
+                    ReadDraft();
+                    ShowDraft();
+                }
             }
-            if (open && dirty && !Input.GetMouseButton(0)) Apply();  // on release: rescaling fleets mid-drag would stack rounding and clamps
-            MouseOverWindow = open && WindowOnScreen().Contains(new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y));
+            if (Open && dirty && !Input.GetMouseButton(0))  // on release: rescaling fleets mid-drag would stack rounding and clamps
+            {
+                Apply();
+                ShowDraft();
+            }
         }
 
-        static float Scale => Math.Max(1f, Screen.height / 1080f);
-
-        static Rect WindowOnScreen() => new Rect(window.x * Scale, window.y * Scale, window.width * Scale, window.height * Scale);
+        static bool Open => win != null && win.activeSelf;
 
         static ConfigEntry<float> Stored(string name) => config.Bind("Galaxy " + galaxy, name, 1f);
 
@@ -233,80 +252,326 @@ namespace DarkFogTuner
             return Snap(log ? (float)(min * Math.Pow(max / min, t)) : min + (max - min) * t);
         }
 
-        static string T(string en, string zh, string tr)
+        public static bool Matches(float[] preset, float[] values)
         {
-            Language l = language.Value;
-            if (l == Language.Auto)
-                l = Application.systemLanguage == SystemLanguage.Turkish ? Language.Turkish
-                  : Application.systemLanguage == SystemLanguage.Chinese || Application.systemLanguage == SystemLanguage.ChineseSimplified ? Language.Chinese
-                  : Language.English;
-            return l == Language.Turkish ? tr : l == Language.Chinese ? zh : en;
+            for (int i = 0; i < preset.Length; i++)
+                if (!float.IsNaN(preset[i]) && Math.Abs(preset[i] - values[i]) > 0.001f) return false;
+            return true;
         }
 
-        static string T(string[] s) => T(s[0], s[1], s[2]);
-
-        void OnGUI()
+        // The Normal preset's value; rows it leaves alone start from their minimum.
+        public static float NormalValue(int i)
         {
-            if (!open || galaxy == NoGalaxy) return;
-            if (panelTexture == null)
-            {
-                panelTexture = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
-                panelTexture.SetPixel(0, 0, new Color(0.05f, 0.07f, 0.10f, 1f));
-                panelTexture.Apply();
-                panelStyle = new GUIStyle(GUI.skin.window);
-                panelStyle.normal.background = panelStyle.onNormal.background = panelTexture;
-                panelStyle.normal.textColor = panelStyle.onNormal.textColor = Color.white;
-                labelStyle = new GUIStyle(GUI.skin.label);
-                labelStyle.normal.textColor = Color.white;
-            }
-            GUI.matrix = Matrix4x4.Scale(new Vector3(Scale, Scale, 1f));
-            window = GUILayout.Window(0x44465455, window, Draw, T("Dark Fog settings", "黑雾设置", "Kara Sis ayarları"), panelStyle);
+            float v = Presets[NormalPreset].Value[i];
+            return float.IsNaN(v) ? Rows[i].Min : v;
         }
 
-        static void Draw(int id)
-        {
-            if (!GameMain.data.gameDesc.isCombatMode)
-            {
-                GUILayout.Label(T("This save has no combat mode.", "此存档未开启战斗模式。", "Bu kayıtta savaş modu yok."), labelStyle);
-            }
-            else
-            {
-                GUILayout.BeginHorizontal();
-                foreach (var preset in Presets)
-                    if (GUILayout.Button(T(preset.Key)))
-                    {
-                        for (int i = 0; i < draft.Length; i++)
-                            if (!float.IsNaN(preset.Value[i])) draft[i] = preset.Value[i];
-                        dirty = true;
-                    }
-                GUILayout.EndHorizontal();
+        // Where a row's slider sits at that value. Log ranges differ per row, so positions only compare against this mark.
+        public static float Origin(int i) => ToSlider(Rows[i].Min, Rows[i].Max, Rows[i].Log, NormalValue(i));
 
-                for (int i = 0; i < Rows.Length; i++)
+        static void SetDraft(int i, float value)
+        {
+            draft[i] = value;
+            dirty = true;
+        }
+
+        static string ValueText(int i)
+        {
+            Row row = Rows[i];
+            return i == Aggression ? (draft[i] >= 0 ? AggressionNames[(int)draft[i]] : "?") : row.Whole ? draft[i].ToString("0") : "×" + draft[i].ToString("0.##");
+        }
+
+        // Every row reads "higher is harder", so the bar's side and colour say which way a setting left Normal.
+        static void ShowRow(int i)
+        {
+            valueTexts[i].text = ValueText(i);
+            valueTexts[i].color = Math.Abs(draft[i] - NormalValue(i)) > 0.001f ? Ink : Soft;
+            float origin = Origin(i), value = sliders[i].value;
+            var bar = deviations[i].rectTransform;
+            bar.anchorMin = new Vector2(Math.Min(origin, value), 0f);
+            bar.anchorMax = new Vector2(Math.Max(origin, value), 1f);
+            deviations[i].color = value > origin ? Accent : Easier;
+        }
+
+        static void ShowPresets()
+        {
+            for (int p = 0; p < Presets.Length; p++) presetButtons[p].highlighted = Matches(Presets[p].Value, draft);
+        }
+
+        static void ShowDraft()
+        {
+            bool combat = GameMain.data.gameDesc.isCombatMode;
+            content.SetActive(combat);
+            noCombatText.gameObject.SetActive(!combat);
+            if (!combat) return;
+            syncing = true;
+            for (int i = 0; i < Rows.Length; i++)
+            {
+                sliders[i].value = ToSlider(Rows[i].Min, Rows[i].Max, Rows[i].Log, draft[i]);
+                ShowRow(i);
+            }
+            syncing = false;
+            ShowPresets();
+            GameHistoryData history = GameMain.data.history;
+            summaryText.text = "Difficulty " + history.combatSettings.difficulty.ToString("0.##") + "    Metadata ×" + MetadataMultiplier(history).ToString("0.##");
+        }
+
+        // Same frame and templates as PowerPlantCalc: the generator window with its contents and behaviour removed.
+        static void Build()
+        {
+            const float Width = 582f, Height = 572f, Margin = 20f, RowsTop = -92f, RowStep = 24f, GroupGap = 9f;
+            var src = UIRoot.instance.uiGame.generatorWindow.transform;
+            var buttonTpl = src.Find("ray-receiver/switch-button-1").gameObject;
+            var labelTpl = src.Find("power-network-desc/desc-group/label-1").GetComponent<Text>();
+            var valueTpl = src.Find("power-network-desc/desc-group/value-1").GetComponent<Text>();
+            var thumbSprite = src.Find("boost-switch/thumb-rail/switch-thumb").GetComponent<Image>().sprite;
+
+            win = UnityEngine.Object.Instantiate(src.gameObject, src.parent, false);
+            win.name = "Dark Fog Settings";
+            UnityEngine.Object.DestroyImmediate(win.GetComponent<UIPowerGeneratorWindow>());
+            foreach (Transform c in win.transform) if (c.name != "panel-bg") UnityEngine.Object.Destroy(c.gameObject);
+            UnityEngine.Object.Destroy(win.transform.Find("panel-bg/btn-box/menu-wnd-btn").gameObject);
+            StripLocalizers(win);
+            Backdrop(win.transform.Find("panel-bg"));
+            var close = win.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<Button>();
+            close.onClick = new Button.ButtonClickedEvent();
+            close.onClick.AddListener(() => win.SetActive(false));
+            var title = win.transform.Find("panel-bg/title-text").GetComponent<Text>();
+            title.text = "Dark Fog settings";
+            title.rectTransform.sizeDelta = new Vector2(400f, title.rectTransform.sizeDelta.y);
+            var root = (RectTransform)win.transform;
+            root.anchoredPosition = new Vector2(-500f, 330f);
+            root.sizeDelta = new Vector2(Width, Height);
+
+            noCombatText = NewText(labelTpl, root, new Vector2(Margin, -50f), new Vector2(Width - 2 * Margin, 20f), TextAnchor.MiddleLeft, "This save has no combat mode.");
+            content = new GameObject("content", typeof(RectTransform));
+            var area = (RectTransform)content.transform;
+            area.SetParent(root, false);
+            Place(area, Vector2.zero, new Vector2(Width, Height));
+
+            for (int p = 0; p < Presets.Length; p++)
+            {
+                float[] values = Presets[p].Value;
+                presetButtons[p] = NewButton(buttonTpl, area, new Vector2(Margin + p * 136f, -50f), new Vector2(134f, 28f), Presets[p].Key, () =>
                 {
-                    Row row = Rows[i];
-                    GUILayout.BeginHorizontal();
-                    GUILayout.Label(T(row.En, row.Zh, row.Tr), labelStyle, GUILayout.Width(190));
-                    float t = ToSlider(row.Min, row.Max, row.Log, draft[i]);
-                    float moved = GUILayout.HorizontalSlider(t, 0f, 1f, GUILayout.Width(190));
-                    if (moved != t)
-                    {
-                        draft[i] = FromSlider(row.Min, row.Max, row.Log, row.ZeroAtLeft, row.Whole, moved);
-                        dirty = true;
-                    }
-                    string text = i == Aggression ? (draft[i] >= 0 ? T(AggressionNames[(int)draft[i]]) : "?") : row.Whole ? draft[i].ToString("0") : "×" + draft[i].ToString("0.##");
-                    GUILayout.Label(text, labelStyle, GUILayout.Width(70));
-                    GUILayout.EndHorizontal();
-                }
-
-                GameHistoryData history = GameMain.data.history;
-                GUILayout.Label(T("Difficulty ", "难度 ", "Zorluk ") + history.combatSettings.difficulty.ToString("0.##")
-                    + T("    Metadata ×", "    元数据 ×", "    Meta veri ×") + MetadataMultiplier(history).ToString("0.##"), labelStyle);
-                GUILayout.Label(T("Applies when you release the mouse. Hive count and starting hives are fixed at new game.",
-                                  "松开鼠标时生效。巢穴数量和初始巢穴在新游戏时确定。",
-                                  "Fareyi bırakınca uygulanır. Kovan sayısı ve başlangıç kovanları yeni oyunda belirlenir."), labelStyle);
+                    for (int i = 0; i < draft.Length; i++)
+                        if (!float.IsNaN(values[i])) SetDraft(i, values[i]);
+                    ShowDraft();
+                });
             }
-            if (GUILayout.Button(T("Close", "关闭", "Kapat"))) open = false;
-            GUI.DragWindow();
+            Card(area, new Vector2(12f, RowsTop + 8f), new Vector2(Width - 24f, Rows.Length * RowStep + GroupStarts.Length * GroupGap + 12f), Well);
+            float y = RowsTop;
+            for (int r = 0; r < Rows.Length; r++)
+            {
+                int i = r;
+                Row row = Rows[i];
+                if (Array.IndexOf(GroupStarts, i) >= 0)
+                {
+                    y -= GroupGap;
+                    Card(area, new Vector2(Margin, y + 7f), new Vector2(Width - 2 * Margin, 1f), Line);
+                }
+                NewText(labelTpl, area, new Vector2(Margin, y), new Vector2(190f, 20f), TextAnchor.MiddleLeft, row.Name);
+                sliders[i] = NewSlider(i, thumbSprite, area, new Vector2(214f, y), new Vector2(256f, 20f));
+                valueTexts[i] = NewText(valueTpl, area, new Vector2(474f, y), new Vector2(Width - Margin - 474f, 20f), TextAnchor.MiddleRight, "");
+                y -= RowStep;
+                sliders[i].onValueChanged.AddListener(t =>
+                {
+                    if (syncing) return;
+                    SetDraft(i, FromSlider(row.Min, row.Max, row.Log, row.ZeroAtLeft, row.Whole, t));
+                    ShowRow(i);
+                    ShowPresets();
+                });
+            }
+            summaryText = NewText(valueTpl, area, new Vector2(Margin, y - 12f), new Vector2(Width - 2 * Margin, 24f), TextAnchor.MiddleLeft, "");
+            summaryText.color = Ink;
+            summaryText.fontSize = 16;
+            var note = NewText(labelTpl, area, new Vector2(Margin, y - 38f), new Vector2(Width - 2 * Margin, 34f), TextAnchor.UpperLeft, "Applies when you release the mouse. Hive count and starting hives are fixed at new game.");
+            note.horizontalOverflow = HorizontalWrapMode.Wrap;
+            note.fontSize = 12;
+            win.SetActive(false);
+        }
+
+        // The options window's volume slider, reduced to a thin track, a Normal mark, a bar from that mark and the game's round switch thumb.
+        static Slider NewSlider(int row, Sprite thumbSprite, Transform parent, Vector2 pos, Vector2 size)
+        {
+            const float Thumb = 12f;
+            var s = UnityEngine.Object.Instantiate(UIRoot.instance.optionWindow.audioVolumeComp, parent, false);
+            StripLocalizers(s.gameObject);
+            s.gameObject.SetActive(true);
+            foreach (var ub in s.GetComponentsInChildren<UIButton>(true)) UnityEngine.Object.DestroyImmediate(ub);  // they would recolour the thumb
+            Place((RectTransform)s.transform, pos, size);
+            s.onValueChanged = new Slider.SliderEvent();
+            s.wholeNumbers = false;
+            s.minValue = 0f;
+            s.maxValue = 1f;
+            s.interactable = true;
+
+            var hit = s.transform.Find("col")?.GetComponent<Image>();
+            if (hit != null) hit.color = Color.clear;
+            var clickArea = s.GetComponent<Image>();  // the visible track is too thin to click
+            if (clickArea == null) clickArea = s.gameObject.AddComponent<Image>();
+            clickArea.color = Color.clear;
+            var background = s.transform.Find("Background");
+            if (background != null)
+            {
+                foreach (Transform c in background) c.gameObject.SetActive(false);
+                Track((RectTransform)background, 0f);
+                Flat(background, Glass[0]);
+            }
+            var fillArea = (RectTransform)s.fillRect.parent;
+            var fillAreaImage = fillArea.GetComponent<Image>();
+            if (fillAreaImage != null) fillAreaImage.enabled = false;
+            Track(fillArea, -Thumb);
+            var fill = s.fillRect;
+            s.fillRect = null;  // ShowRow draws the bar from the Normal mark, not from the left end
+            fill.anchoredPosition = fill.sizeDelta = Vector2.zero;
+            if (fill.GetComponent<Image>() == null) fill.gameObject.AddComponent<Image>();
+            Flat(fill, Accent);
+            deviations[row] = fill.GetComponent<Image>();
+            var mark = Card(fillArea, Vector2.zero, new Vector2(1f, 10f), Soft).rectTransform;
+            mark.anchorMin = mark.anchorMax = new Vector2(Origin(row), 0.5f);
+            mark.pivot = new Vector2(0.5f, 0.5f);
+            mark.anchoredPosition = Vector2.zero;
+
+            var handle = s.handleRect;
+            foreach (Transform c in handle) UnityEngine.Object.Destroy(c.gameObject);
+            var slideArea = (RectTransform)handle.parent;
+            slideArea.anchorMin = Vector2.zero;
+            slideArea.anchorMax = Vector2.one;
+            slideArea.anchoredPosition = Vector2.zero;
+            slideArea.sizeDelta = new Vector2(-Thumb, 0f);
+            handle.anchoredPosition = Vector2.zero;
+            handle.sizeDelta = new Vector2(Thumb, -8f);  // rows are 20 tall, so the thumb is round
+            var thumb = handle.GetComponent<Image>();
+            if (thumb == null) thumb = handle.gameObject.AddComponent<Image>();
+            Flat(handle, Ink);
+            thumb.sprite = thumbSprite;
+            s.targetGraphic = thumb;
+            s.transition = Selectable.Transition.ColorTint;
+            var tint = ColorBlock.defaultColorBlock;
+            tint.normalColor = new Color(0.82f, 0.82f, 0.82f);
+            tint.highlightedColor = Color.white;
+            tint.pressedColor = new Color(1f, 0.66f, 0.42f);
+            s.colors = tint;
+            return s;
+        }
+
+        static void Track(RectTransform rt, float inset)
+        {
+            rt.anchorMin = new Vector2(0f, 0.5f);
+            rt.anchorMax = new Vector2(1f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(inset, 3f);
+        }
+
+        static void Flat(Transform t, Color color)
+        {
+            var image = t.GetComponent<Image>();
+            if (image == null) return;
+            image.sprite = null;
+            image.type = Image.Type.Simple;
+            image.material = null;
+            image.color = color;
+            image.enabled = true;
+        }
+
+        static Text NewText(Text tpl, Transform parent, Vector2 pos, Vector2 size, TextAnchor align, string text)
+        {
+            var t = UnityEngine.Object.Instantiate(tpl, parent, false);
+            StripLocalizers(t.gameObject);
+            Place(t.rectTransform, pos, size);
+            t.alignment = align;
+            t.text = text;
+            t.material = null;  // the value template's material overdrives bright colours into a glow
+            t.color = Soft;
+            t.raycastTarget = false;
+            return t;
+        }
+
+        static UIButton NewButton(GameObject tpl, Transform parent, Vector2 pos, Vector2 size, string label, UnityEngine.Events.UnityAction onClick)
+        {
+            var go = UnityEngine.Object.Instantiate(tpl, parent, false);
+            StripLocalizers(go);
+            go.SetActive(true);
+            Place((RectTransform)go.transform, pos, size);
+            go.GetComponentInChildren<Text>().text = label;
+            var b = go.GetComponent<Button>();
+            b.onClick = new Button.ButtonClickedEvent();
+            b.onClick.AddListener(onClick);
+            var ub = go.GetComponent<UIButton>();
+            ub.tips.tipTitle = "";
+            ub.tips.tipText = "";
+            Style(go, Glass, 14);
+            return ub;
+        }
+
+        static void Style(GameObject go, Color[] palette, int fontSize)
+        {
+            var label = go.GetComponentInChildren<Text>();
+            foreach (var t in go.GetComponent<UIButton>().transitions)
+            {
+                if (t.target == null) continue;
+                bool isText = t.target is Text;
+                t.normalColor = t.disabledColor = isText ? palette[3] : palette[0];
+                t.mouseoverColor = isText ? palette[3] : palette[1];
+                t.pressedColor = isText ? palette[3] : palette[2];
+                t.highlightColorOverride = isText ? AccentInk : Accent;
+                t.alphaOnly = false;
+                t.mouseoverSize = t.pressedSize = t.highlightSizeMultiplier = 1f;
+            }
+            go.GetComponent<UIButton>().highlighted = false;  // the cloned template is the receiver's selected mode
+            go.GetComponent<Button>().transition = Selectable.Transition.None;
+            var fill = go.GetComponent<Image>();
+            fill.material = null;  // the template's widget material boosts alpha, so colours would not read as written
+            fill.color = palette[0];
+            label.color = palette[3];
+            label.fontSize = fontSize;
+            label.alignment = TextAnchor.MiddleCenter;
+            var rt = label.rectTransform;
+            rt.anchorMin = Vector2.zero;
+            rt.anchorMax = Vector2.one;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = rt.sizeDelta = Vector2.zero;
+        }
+
+        // Deepens the game's glass so text holds on bright ground. The panel's own sprite keeps the cut corners; first child, so border, title and close button stay on top.
+        static void Backdrop(Transform panel)
+        {
+            var bg = panel.GetComponent<Image>();
+            var scrim = new GameObject("scrim", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            scrim.transform.SetParent(panel, false);
+            scrim.transform.SetAsFirstSibling();
+            scrim.rectTransform.anchorMin = Vector2.zero;
+            scrim.rectTransform.anchorMax = Vector2.one;
+            scrim.rectTransform.anchoredPosition = scrim.rectTransform.sizeDelta = Vector2.zero;
+            scrim.sprite = bg.sprite;
+            scrim.type = bg.type;
+            scrim.color = Scrim;
+            scrim.raycastTarget = false;
+        }
+
+        static Image Card(Transform parent, Vector2 pos, Vector2 size, Color color)
+        {
+            var image = new GameObject("card", typeof(RectTransform), typeof(Image)).GetComponent<Image>();
+            image.transform.SetParent(parent, false);
+            Place(image.rectTransform, pos, size);
+            image.color = color;
+            image.raycastTarget = false;
+            return image;
+        }
+
+        static void Place(RectTransform rt, Vector2 pos, Vector2 size)
+        {
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
+            rt.anchoredPosition = pos;
+            rt.sizeDelta = size;
+            rt.localScale = Vector3.one;
+        }
+
+        // Cloned game texts would otherwise be reset to their original translation keys.
+        static void StripLocalizers(GameObject go)
+        {
+            foreach (var l in go.GetComponentsInChildren<Localizer>(true)) UnityEngine.Object.DestroyImmediate(l);
         }
     }
 
@@ -455,15 +720,6 @@ namespace DarkFogTuner
         static void ShieldRemainder(ref int __result)
         {
             if (Plugin.EnemyDamageFactor != 1f) __result = (int)(__result / (double)Plugin.EnemyDamageFactor);
-        }
-
-        // Clicks on the panel must not reach the factory behind it.
-        [HarmonyPostfix, HarmonyPatch(typeof(VFInput), nameof(VFInput.UpdateGameStates))]
-        static void BlockInput()
-        {
-            if (!Plugin.MouseOverWindow) return;
-            VFInput.onGUI = true;
-            VFInput.onGUIOperate = true;
         }
     }
 }

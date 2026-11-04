@@ -1,6 +1,8 @@
 # DarkFogTuner
 
-Change Dark Fog difficulty while playing. Press `Ctrl+Shift+K` in a game to open the panel, move a slider, release the mouse and it applies. The Easy, Normal, Hard and Extreme buttons set everything at once. The hotkey and language are in `BepInEx/config/bug.dsp.darkfogtuner.cfg`.
+Change Dark Fog difficulty while playing, in the game's own window style. The panel is available only in a running game, not in the Esc menu or on the main menu. Press `Ctrl+Shift+K` in a game to open the panel, move a slider, release the mouse and it applies. The Easy, Normal, Hard and Extreme buttons set everything at once. The hotkey is in `BepInEx/config/bug.dsp.darkfogtuner.cfg`.
+
+Each slider has a mark at the Normal value. A bar runs from that mark: orange means harder than Normal, blue means easier. Values at Normal are dimmed, and the button of the preset you are on is highlighted.
 
 [Türkçe açıklama](https://github.com/darkenb/DarkFogTuner/blob/main/README.tr.md)
 
