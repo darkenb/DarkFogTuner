@@ -10,7 +10,7 @@ using UnityEngine.UI;
 
 namespace DarkFogTuner
 {
-    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.3.1")]
+    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.3.2")]
     public class Plugin : BaseUnityPlugin
     {
         const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Growth = 5, PowerThreat = 6, BattleThreat = 7, BattleExp = 8, Capacity = 9, Production = 10, EnemyDamage = 11, EnemyHealth = 12, NewLevel = 13, NewGrowth = 14;
@@ -330,7 +330,12 @@ namespace DarkFogTuner
             win.name = "Dark Fog Settings";
             UnityEngine.Object.DestroyImmediate(win.GetComponent<UIPowerGeneratorWindow>());
             foreach (Transform c in win.transform) if (c.name != "panel-bg") UnityEngine.Object.Destroy(c.gameObject);
-            UnityEngine.Object.Destroy(win.transform.Find("panel-bg/btn-box/menu-wnd-btn").gameObject);
+            // One close button left: the box was sized for two (64 wide), so shrink it to the close button and keep its right edge.
+            var box = (RectTransform)win.transform.Find("panel-bg/btn-box");
+            UnityEngine.Object.DestroyImmediate(box.Find("menu-wnd-btn").gameObject);
+            box.sizeDelta = new Vector2(32f, box.sizeDelta.y);
+            box.anchoredPosition += new Vector2(16f, 0f);
+            ((RectTransform)box.Find("close-wnd-btn")).anchoredPosition = Vector2.zero;
             StripLocalizers(win);
             Backdrop(win.transform.Find("panel-bg"));
             var close = win.transform.Find("panel-bg/btn-box/close-wnd-btn").GetComponent<Button>();

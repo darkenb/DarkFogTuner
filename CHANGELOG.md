@@ -1,3 +1,7 @@
+## 1.3.2
+
+- The close button sits in a box of its own size: the window no longer shows an empty slot left of the X.
+
 ## 1.3.1
 
 - Fixed values and headings glowing in the new look.
