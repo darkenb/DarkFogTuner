@@ -10,10 +10,10 @@ using UnityEngine.UI;
 
 namespace DarkFogTuner
 {
-    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.3.3")]
+    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.3.4")]
     public class Plugin : BaseUnityPlugin
     {
-        const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Growth = 5, PowerThreat = 6, BattleThreat = 7, BattleExp = 8, Capacity = 9, Production = 10, EnemyDamage = 11, EnemyHealth = 12, NewLevel = 13, NewGrowth = 14;
+        const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Growth = 5, PowerThreat = 6, BattleThreat = 7, BattleExp = 8, Capacity = 9, Production = 10, EnemyDamage = 11, EnemyHealth = 12, NewLevel = 13, NewGrowth = 14, Threat = 15;
         const long NoGalaxy = -2;
 
         // Must be the game's exact values: any other aggressiveness maps to no EAggressiveLevel.
@@ -40,6 +40,7 @@ namespace DarkFogTuner
             new Row { Name = "Enemy durability", Min = 0.1f, Max = 100, Log = true },
             new Row { Name = "New hive level", Min = 0, Max = 30, Whole = true },
             new Row { Name = "New hive head start", Min = 0, Max = 4 },
+            new Row { Name = "Threat level (all hives, bases)", Min = 0, Max = 100, Whole = true },
         };
 
         // NaN keeps the current value. Order follows Rows.
@@ -54,10 +55,10 @@ namespace DarkFogTuner
         const int NormalPreset = 1;
 
         // First row of each group after the first; rows keep their order.
-        static readonly int[] GroupStarts = { 1, 5, 9, 13 };
+        static readonly int[] GroupStarts = { 1, 5, 9, 13, 15 };
 
         static KeyValuePair<string, float[]> Preset(string name, params float[] v) =>
-            new KeyValuePair<string, float[]>(name, v.Concat(new[] { float.NaN, float.NaN }).ToArray());
+            new KeyValuePair<string, float[]>(name, v.Concat(new[] { float.NaN, float.NaN, float.NaN }).ToArray());
 
         // Read by the patches from the game's worker threads.
         public static float AttackFrequency = 1f, FleetSizeFactor = 1f, FleetGrowthFactor = 1f, SpreadFactor = 1f, UnitCapacity = 1f, ProductionFactor = 1f, EnemyDamageFactor = 1f, EnemyHealthFactor = 1f;
@@ -65,7 +66,7 @@ namespace DarkFogTuner
         static ConfigEntry<KeyboardShortcut> hotkey;
         static ConfigFile config;
         static long galaxy = NoGalaxy;
-        static bool dirty, syncing;
+        static bool dirty, threatDirty, syncing;
         static readonly float[] draft = new float[Rows.Length];
         // Tokens from the game's own window: panel teal, line cyan, selection orange. Glass order: rest, hover, pressed, text.
         static readonly Color Ink = new Color32(232, 246, 252, 255), Soft = new Color32(176, 208, 220, 255), Accent = new Color32(253, 150, 94, 255), AccentInk = new Color32(28, 14, 6, 255), Scrim = new Color32(4, 22, 30, 168), Well = new Color32(0, 10, 16, 120), Line = new Color32(167, 233, 255, 40);
@@ -127,15 +128,48 @@ namespace DarkFogTuner
         {
             dirty = false;
             bool none = galaxy == NoGalaxy;
-            AttackFrequency = none ? 1f : Stored("AttackFrequency").Value;
-            FleetSizeFactor = none ? 1f : Stored("FleetSize").Value;
-            FleetGrowthFactor = none ? 1f : Stored("FleetGrowth").Value;
-            SpreadFactor = none ? 1f : Stored("Spread").Value;
-            UnitCapacity = none ? 1f : Stored("UnitCapacity").Value;
-            ProductionFactor = none ? 1f : Stored("Production").Value;
-            EnemyDamageFactor = none ? 1f : Stored("EnemyDamage").Value;
-            EnemyHealthFactor = none ? 1f : Stored("EnemyHealth").Value;
+            AttackFrequency = none ? 1f : Load("AttackFrequency", Frequency);
+            FleetSizeFactor = none ? 1f : Load("FleetSize", FleetSize);
+            FleetGrowthFactor = none ? 1f : Load("FleetGrowth", FleetGrowth);
+            SpreadFactor = none ? 1f : Load("Spread", Spread);
+            UnitCapacity = none ? 1f : Load("UnitCapacity", Capacity);
+            ProductionFactor = none ? 1f : Load("Production", Production);
+            EnemyDamageFactor = none ? 1f : Load("EnemyDamage", EnemyDamage);
+            EnemyHealthFactor = none ? 1f : Load("EnemyHealth", EnemyHealth);
         }
+
+        // A hand-edited config must not reach the patches as 0 or NaN: several of them divide by these.
+        static float Load(string name, int row) => Clamp(Stored(name).Value, Rows[row].ZeroAtLeft ? 0f : Rows[row].Min);
+
+        public static float Clamp(float v, float min) => v >= min ? v : min;
+
+        // Highest attack meter, in percent of its attack threshold, over realized hives and ground bases; with a value, every meter is set to it first.
+        // Meters at the game's "never attacks" threshold (passive levels) are left alone.
+        static float ThreatLevel(float? set = null)
+        {
+            float max = 0f;
+            void Visit(ref EvolveData e)
+            {
+                if (e.maxThreat <= 0 || e.maxThreat >= 1000000000) return;
+                if (set.HasValue) e.threat = ThreatAt(e.maxThreat, set.Value);
+                max = Math.Max(max, 100f * e.threat / e.maxThreat);
+            }
+            SpaceSector sector = GameMain.data.spaceSector;
+            if (sector?.dfHives != null)
+                foreach (EnemyDFHiveSystem first in sector.dfHives)
+                    for (EnemyDFHiveSystem hive = first; hive != null; hive = hive.nextSibling)
+                        if (hive.realized) Visit(ref hive.evolve);
+            foreach (PlanetFactory factory in GameMain.data.factories)
+            {
+                var bases = factory?.enemySystem?.bases;
+                if (bases?.buffer == null) continue;
+                for (int i = 1; i < bases.cursor; i++)
+                    if (bases.buffer[i] != null && bases.buffer[i].id == i) Visit(ref bases.buffer[i].evolve);
+            }
+            return max;
+        }
+
+        public static int ThreatAt(int maxThreat, float percent) => (int)Math.Min(maxThreat, maxThreat * (double)percent / 100.0);
 
         public static float MetadataMultiplier(GameHistoryData history) => Traverse.Create(history).Property<float>("currentPropertyMultiplier").Value;
 
@@ -158,7 +192,8 @@ namespace DarkFogTuner
             draft[EnemyHealth] = EnemyHealthFactor;
             draft[NewLevel] = c.initialLevel;
             draft[NewGrowth] = c.initialGrowth;
-            dirty = false;
+            draft[Threat] = (float)Math.Round(ThreatLevel());
+            dirty = threatDirty = false;
         }
 
         static void Apply()
@@ -168,7 +203,7 @@ namespace DarkFogTuner
             ref CombatSettings c = ref history.combatSettings;
             EAggressiveLevel oldLevel = c.aggressiveLevel;
             float ratio = draft[FleetSize] / FleetSizeFactor;
-            c.aggressiveness = AggressionValues[Math.Max(0, (int)draft[Aggression])];
+            if (draft[Aggression] >= 0) c.aggressiveness = AggressionValues[(int)draft[Aggression]];  // -1: a value that is none of the game's levels stays
             c.growthSpeedFactor = draft[Growth];
             c.powerThreatFactor = draft[PowerThreat];
             c.battleThreatFactor = draft[BattleThreat];
@@ -204,6 +239,8 @@ namespace DarkFogTuner
                 factory?.enemySystem?.CalcFormsSupply();
             // Recomputes every hive's and base's attack threshold (with our factor) and keeps their progress towards it.
             sector?.OnDFAggressivenessChanged(oldLevel, c.aggressiveLevel);
+            if (threatDirty) ThreatLevel(draft[Threat]);  // only when that slider moved: it shows the highest meter, not each one
+            threatDirty = false;
         }
 
         // A hive has 1440 lancer ports; capacity 1 keeps the game's own cap of 360.
@@ -273,12 +310,13 @@ namespace DarkFogTuner
         {
             draft[i] = value;
             dirty = true;
+            threatDirty |= i == Threat;
         }
 
         static string ValueText(int i)
         {
             Row row = Rows[i];
-            return i == Aggression ? (draft[i] >= 0 ? AggressionNames[(int)draft[i]] : "?") : row.Whole ? draft[i].ToString("0") : "×" + draft[i].ToString("0.##");
+            return i == Aggression ? (draft[i] >= 0 ? AggressionNames[(int)draft[i]] : "?") : i == Threat ? draft[i].ToString("0") + "%" : row.Whole ? draft[i].ToString("0") : "×" + draft[i].ToString("0.##");
         }
 
         // Every row reads "higher is harder", so the bar's side and colour say which way a setting left Normal.
@@ -319,7 +357,7 @@ namespace DarkFogTuner
         // Same frame and templates as PowerPlantCalc: the generator window with its contents and behaviour removed.
         static void Build()
         {
-            const float Width = 582f, Height = 572f, Margin = 20f, RowsTop = -92f, RowStep = 24f, GroupGap = 9f;
+            const float Width = 582f, Height = 605f, Margin = 20f, RowsTop = -92f, RowStep = 24f, GroupGap = 9f;
             var src = UIRoot.instance.uiGame.generatorWindow.transform;
             var buttonTpl = src.Find("ray-receiver/switch-button-1").gameObject;
             var labelTpl = src.Find("power-network-desc/desc-group/label-1").GetComponent<Text>();
@@ -391,7 +429,7 @@ namespace DarkFogTuner
             summaryText = NewText(valueTpl, area, new Vector2(Margin, y - 12f), new Vector2(Width - 2 * Margin, 24f), TextAnchor.MiddleLeft, "");
             summaryText.color = Ink;
             summaryText.fontSize = 16;
-            var note = NewText(labelTpl, area, new Vector2(Margin, y - 38f), new Vector2(Width - 2 * Margin, 34f), TextAnchor.UpperLeft, "Applies when you release the mouse. Hive count and starting hives are fixed at new game.");
+            var note = NewText(labelTpl, area, new Vector2(Margin, y - 38f), new Vector2(Width - 2 * Margin, 34f), TextAnchor.UpperLeft, "Applies when you release the mouse. Threat level fills every attack meter once; 100% starts attacks. Hive count and starting hives are fixed at new game.");
             note.horizontalOverflow = HorizontalWrapMode.Wrap;
             note.fontSize = 12;
             win.SetActive(false);

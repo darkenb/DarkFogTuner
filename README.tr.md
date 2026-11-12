@@ -19,12 +19,13 @@ Her kaydırıcıda Normal değerini gösteren bir işaret vardır. Çubuk bu iş
 | Düşman hasarı | ×0,1 - ×100 | Binalara, mekaya ve gezegen kalkanlarına verilen hasar |
 | Düşman dayanıklılığı | ×0,1 - ×100 | Kara Sis birim ve yapılarının aldığı hasarı böler. 30. seviyenin üstüne eklenir |
 | Yeni kovan seviyesi, başlangıç avantajı | 0 - 30, 0 - 4 | Yalnız bundan sonra kurulan kovanlar |
+| Tehdit seviyesi | %0 - %100 | Kaydırıcıyı bıraktığınızda bütün kovanların ve yer üslerinin saldırı göstergesini bir kez bu değere getirir; %100 saldırıları başlatır. En yüksek göstergeyi gösterir. Saklanmaz; Pasif ve altı seviyeler yine saldırmaz |
 
 Oyunun kendi ayarları kayıt dosyasında saklanır. Saldırı sıklığı, filo büyüklüğü, filo büyümesi, yayılma, birim kapasitesi, üretim, düşman hasarı ve dayanıklılığı ise config dosyasında galaksi başına saklanır; aynı galaksinin kayıtları bu değerleri paylaşır.
 
 ## They Come From Void (DSP_Battle)
 
-Bu modla birlikte yükleme, kaydetme ve uzay saldırıları sorunsuz çalıştı. Düşman hasarı ve düşman dayanıklılığı ise ×1 dışındaki değerlerde henüz oyunda denenmedi. İki mod aynı hasar metotlarını yamaladığı için etkileri beklenmedik şekilde birleşebilir; örneğin kalıntı hasar bonusları veya kalkanlar farklı davranabilir. Böyle bir şey görürseniz ikisini ×1'e alıp [bildirin](https://github.com/darkenb/DarkFogTuner/issues).
+Bu modla birlikte yükleme, kaydetme ve uzay saldırıları sorunsuz çalışır. İki mod aynı hasar metotlarını yamaladığı için etkileri beklenmedik şekilde birleşebilir; örneğin kalıntı hasar bonusları veya kalkanlar farklı davranabilir. Böyle bir şey görürseniz ikisini ×1'e alıp [bildirin](https://github.com/darkenb/DarkFogTuner/issues).
 
 ## Sınırlar
 

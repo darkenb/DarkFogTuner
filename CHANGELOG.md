@@ -1,3 +1,9 @@
+## 1.3.4
+
+- New slider "Threat level": sets the attack meter of every hive and ground base at once; 100% starts their attacks. Passive levels still never attack.
+- An aggressiveness value that is none of the game's six levels is no longer replaced by Dummy when another slider moves.
+- Config values edited to 0 or below their minimum are read as the minimum.
+
 ## 1.3.3
 
 - Close button hover no longer sticks out of its frame: the box is 48 wide so the frame's slanted end stays clear of the button.

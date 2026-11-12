@@ -21,12 +21,13 @@ Each slider has a mark at the Normal value. A bar runs from that mark: orange me
 | Enemy damage | ×0.1 to ×100 | Damage to buildings, the mecha and planetary shields |
 | Enemy durability | ×0.1 to ×100 | Divides damage taken by Dark Fog units and buildings. Works on top of level 30 |
 | New hive level, head start | 0 to 30, 0 to 4 | Only hives founded from now on |
+| Threat level | 0 to 100% | Sets the attack meter of every hive and ground base once, when you release the slider; 100% starts their attacks. Shows the highest meter. Not stored; Passive and lower never attack |
 
 The game's own settings are stored in your save. Attack frequency, fleet size, fleet growth, spread, unit capacity, production, enemy damage and durability are stored per galaxy in the config file, so saves of the same galaxy share them.
 
 ## They Come From Void (DSP_Battle)
 
-Loading, saving and space attacks worked in a game with this mod. Enemy damage and enemy durability have not been tested in the game at values other than ×1 yet. Both mods patch the same damage methods, so their effects may combine in unexpected ways, for example relic damage bonuses or shields behaving differently. If you see this, set both back to ×1 and [report it](https://github.com/darkenb/DarkFogTuner/issues).
+Loading, saving and space attacks work in a game with this mod. Both mods patch the same damage methods, so their effects may combine in unexpected ways, for example relic damage bonuses or shields behaving differently. If you see this, set both back to ×1 and [report it](https://github.com/darkenb/DarkFogTuner/issues).
 
 ## Limits
 
