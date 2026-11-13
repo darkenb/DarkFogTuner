@@ -10,10 +10,10 @@ using UnityEngine.UI;
 
 namespace DarkFogTuner
 {
-    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.3.4")]
+    [BepInPlugin("bug.dsp.darkfogtuner", "DarkFogTuner", "1.4.0")]
     public class Plugin : BaseUnityPlugin
     {
-        const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Growth = 5, PowerThreat = 6, BattleThreat = 7, BattleExp = 8, Capacity = 9, Production = 10, EnemyDamage = 11, EnemyHealth = 12, NewLevel = 13, NewGrowth = 14, Threat = 15;
+        const int Aggression = 0, Frequency = 1, FleetSize = 2, FleetGrowth = 3, Spread = 4, Landing = 5, PerPlanet = 6, Growth = 7, PowerThreat = 8, BattleThreat = 9, BattleExp = 10, Capacity = 11, Production = 12, EnemyDamage = 13, EnemyHealth = 14, NewLevel = 15, NewGrowth = 16, Threat = 17;
         const long NoGalaxy = -2;
 
         // Must be the game's exact values: any other aggressiveness maps to no EAggressiveLevel.
@@ -30,6 +30,8 @@ namespace DarkFogTuner
             new Row { Name = "Fleet size", Min = 0.1f, Max = 20, Log = true },
             new Row { Name = "Fleet growth per wave", Min = 0.1f, Max = 10, Log = true, ZeroAtLeft = true },
             new Row { Name = "Spread to other stars", Min = 0.01f, Max = 20, Log = true, ZeroAtLeft = true },
+            new Row { Name = "Ground bases landing", Min = 0.1f, Max = 20, Log = true, ZeroAtLeft = true },
+            new Row { Name = "Ground bases per planet", Min = 1, Max = 5, Log = true },
             new Row { Name = "Build and replication speed", Min = 0.1f, Max = 10, Log = true },
             new Row { Name = "Power threat (ground bases)", Min = 0.01f, Max = 100, Log = true },
             new Row { Name = "Threat from combat", Min = 0.01f, Max = 100, Log = true },
@@ -46,34 +48,36 @@ namespace DarkFogTuner
         // NaN keeps the current value. Order follows Rows.
         static readonly KeyValuePair<string, float[]>[] Presets =
         {
-            Preset("Easy", 2, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 0.2f, 0.2f, 0.2f, 1, 1, 0.5f, 0.5f),
-            Preset("Normal", 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
-            Preset("Hard", 4, 1.5f, 1.5f, 1.5f, 1.5f, 2, 2, 2, 2, 2, 2, 2, 2),
-            Preset("Extreme", 5, 10, 5, 5, 5, 10, 20, 20, 5, 10, 10, 5, 5),
+            Preset("Easy", 2, 0.5f, 0.5f, 0.5f, 0.5f, 0.5f, 1, 0.5f, 0.2f, 0.2f, 0.2f, 1, 1, 0.5f, 0.5f),
+            Preset("Normal", 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1),
+            Preset("Hard", 4, 1.5f, 1.5f, 1.5f, 1.5f, 2, 1.5f, 2, 2, 2, 2, 2, 2, 2, 2),
+            Preset("Extreme", 5, 10, 5, 5, 5, 5, 3, 10, 20, 20, 5, 10, 10, 5, 5),
         };
 
         const int NormalPreset = 1;
 
         // First row of each group after the first; rows keep their order.
-        static readonly int[] GroupStarts = { 1, 5, 9, 13, 15 };
+        static readonly int[] GroupStarts = { 1, 7, 11, 15, 17 };
 
         static KeyValuePair<string, float[]> Preset(string name, params float[] v) =>
             new KeyValuePair<string, float[]>(name, v.Concat(new[] { float.NaN, float.NaN, float.NaN }).ToArray());
 
         // Read by the patches from the game's worker threads.
-        public static float AttackFrequency = 1f, FleetSizeFactor = 1f, FleetGrowthFactor = 1f, SpreadFactor = 1f, UnitCapacity = 1f, ProductionFactor = 1f, EnemyDamageFactor = 1f, EnemyHealthFactor = 1f;
+        public static float AttackFrequency = 1f, FleetSizeFactor = 1f, FleetGrowthFactor = 1f, SpreadFactor = 1f, LandingFactor = 1f, PerPlanetFactor = 1f, UnitCapacity = 1f, ProductionFactor = 1f, EnemyDamageFactor = 1f, EnemyHealthFactor = 1f;
 
         static ConfigEntry<KeyboardShortcut> hotkey;
         static ConfigFile config;
         static long galaxy = NoGalaxy;
         static bool dirty, threatDirty, syncing;
         static readonly float[] draft = new float[Rows.Length];
+        // The values when the panel opened: the new hive rows are the game's own settings, so their hint compares against these, not Normal.
+        static float[] opened = new float[Rows.Length];
         // Tokens from the game's own window: panel teal, line cyan, selection orange. Glass order: rest, hover, pressed, text.
         static readonly Color Ink = new Color32(232, 246, 252, 255), Soft = new Color32(176, 208, 220, 255), Accent = new Color32(253, 150, 94, 255), AccentInk = new Color32(28, 14, 6, 255), Scrim = new Color32(4, 22, 30, 168), Well = new Color32(0, 10, 16, 120), Line = new Color32(167, 233, 255, 40);
         static readonly Color[] Glass = { new Color32(167, 233, 255, 56), new Color32(167, 233, 255, 92), new Color32(167, 233, 255, 32), Ink };
         static readonly Color Easier = new Color32(167, 233, 255, 255);
         static GameObject win, content;
-        static Text noCombatText, summaryText;
+        static Text noCombatText, summaryText, hintText;
         static readonly Slider[] sliders = new Slider[Rows.Length];
         static readonly Text[] valueTexts = new Text[Rows.Length];
         static readonly Image[] deviations = new Image[Rows.Length];
@@ -132,6 +136,8 @@ namespace DarkFogTuner
             FleetSizeFactor = none ? 1f : Load("FleetSize", FleetSize);
             FleetGrowthFactor = none ? 1f : Load("FleetGrowth", FleetGrowth);
             SpreadFactor = none ? 1f : Load("Spread", Spread);
+            LandingFactor = none ? 1f : Load("Landing", Landing);
+            PerPlanetFactor = none ? 1f : Load("PerPlanet", PerPlanet);
             UnitCapacity = none ? 1f : Load("UnitCapacity", Capacity);
             ProductionFactor = none ? 1f : Load("Production", Production);
             EnemyDamageFactor = none ? 1f : Load("EnemyDamage", EnemyDamage);
@@ -182,6 +188,8 @@ namespace DarkFogTuner
             draft[FleetSize] = FleetSizeFactor;
             draft[FleetGrowth] = FleetGrowthFactor;
             draft[Spread] = SpreadFactor;
+            draft[Landing] = LandingFactor;
+            draft[PerPlanet] = PerPlanetFactor;
             draft[Growth] = c.growthSpeedFactor;
             draft[PowerThreat] = c.powerThreatFactor;
             draft[BattleThreat] = c.battleThreatFactor;
@@ -194,6 +202,7 @@ namespace DarkFogTuner
             draft[NewGrowth] = c.initialGrowth;
             draft[Threat] = (float)Math.Round(ThreatLevel());
             dirty = threatDirty = false;
+            opened = (float[])draft.Clone();
         }
 
         static void Apply()
@@ -214,6 +223,8 @@ namespace DarkFogTuner
             FleetSizeFactor = Stored("FleetSize").Value = draft[FleetSize];
             FleetGrowthFactor = Stored("FleetGrowth").Value = draft[FleetGrowth];
             SpreadFactor = Stored("Spread").Value = draft[Spread];
+            LandingFactor = Stored("Landing").Value = draft[Landing];
+            PerPlanetFactor = Stored("PerPlanet").Value = draft[PerPlanet];
             UnitCapacity = Stored("UnitCapacity").Value = draft[Capacity];
             ProductionFactor = Stored("Production").Value = draft[Production];
             EnemyDamageFactor = Stored("EnemyDamage").Value = draft[EnemyDamage];
@@ -266,6 +277,16 @@ namespace DarkFogTuner
         public static int ScaleCount(int count) => count <= 0 ? count : Math.Max(1, (int)(count * FleetSizeFactor + 0.5f));
 
         public static double SpreadChance() => 0.0625 * SpreadFactor;
+
+        // Each hive sends at most one relay per demand check (every 600 ticks); a landed relay builds a ground base.
+        public static int LandingPasses() => LandingFactor <= 1f ? 1 : (int)(LandingFactor + 0.5f);
+
+        public static bool LandingCheckRuns(float roll) => LandingFactor >= 1f || roll < LandingFactor;
+
+        public static float ScaleRelayDemand(float demand) => demand * Math.Max(1f, LandingFactor);
+
+        // The game's limit: relays out at most 7 per rocky planet of the star (fewer in stars with many hives).
+        public static int ScalePlanetRelayCap(int cap) => (int)(cap * (double)PerPlanetFactor);
 
         // Two significant digits, so a log slider lands on readable values.
         public static float Snap(float v)
@@ -331,6 +352,38 @@ namespace DarkFogTuner
             deviations[i].color = value > origin ? Accent : Easier;
         }
 
+        public static int RowCount => Rows.Length;
+
+        public const int MaxHints = 4;
+
+        // What a combination of sliders needs from the others, most important first; the panel shows the first MaxHints.
+        public static List<string> Hints(float[] v, float[] opened)
+        {
+            var hints = new List<string>();
+            bool passive = v[Aggression] >= 0 && v[Aggression] <= 1;
+            if (passive && (v[Frequency] > 1f || v[FleetSize] > 1f || v[EnemyDamage] > 1f))
+                hints.Add("Passive and Dummy never attack: attack settings have no effect at this level.");
+            if (v[Landing] == 0f) hints.Add("Ground bases landing 0: no new ground bases; bases already built stay.");
+            else if ((v[Landing] > 1f || v[PerPlanet] > 1f) && v[Spread] <= 1f)
+                hints.Add("Bases only land in star systems with a hive: raise Spread to reach empty systems.");
+            if (v[Landing] >= 3f && v[Growth] <= 1f)
+                hints.Add("Many landings need many relays: raise Build and replication speed too.");
+            if (v[Spread] == 0f) hints.Add("Spread 0: no new hives in other star systems.");
+            if (v[FleetSize] > 1f && v[Capacity] <= 1f && v[Production] <= 1f)
+                hints.Add("Bigger fleets need units: raise Unit capacity and Free unit production too.");
+            if (v[Capacity] >= 5f || v[Production] >= 10f)
+                hints.Add("Very high unit capacity or production can lower the frame rate.");
+            if (Math.Abs(v[NewLevel] - opened[NewLevel]) > 0.001f || Math.Abs(v[NewGrowth] - opened[NewGrowth]) > 0.001f)
+                hints.Add("New hive level and head start only affect hives founded from now on.");
+            return hints;
+        }
+
+        static void ShowHints()
+        {
+            List<string> hints = Hints(draft, opened);
+            hintText.text = string.Join("\n", hints.Take(MaxHints).Select(h => "• " + h).ToArray());
+        }
+
         static void ShowPresets()
         {
             for (int p = 0; p < Presets.Length; p++) presetButtons[p].highlighted = Matches(Presets[p].Value, draft);
@@ -350,6 +403,7 @@ namespace DarkFogTuner
             }
             syncing = false;
             ShowPresets();
+            ShowHints();
             GameHistoryData history = GameMain.data.history;
             summaryText.text = "Difficulty " + history.combatSettings.difficulty.ToString("0.##") + "    Metadata ×" + MetadataMultiplier(history).ToString("0.##");
         }
@@ -357,7 +411,7 @@ namespace DarkFogTuner
         // Same frame and templates as PowerPlantCalc: the generator window with its contents and behaviour removed.
         static void Build()
         {
-            const float Width = 582f, Height = 605f, Margin = 20f, RowsTop = -92f, RowStep = 24f, GroupGap = 9f;
+            const float Width = 582f, Height = 760f, Margin = 20f, RowsTop = -92f, RowStep = 24f, GroupGap = 9f;
             var src = UIRoot.instance.uiGame.generatorWindow.transform;
             var buttonTpl = src.Find("ray-receiver/switch-button-1").gameObject;
             var labelTpl = src.Find("power-network-desc/desc-group/label-1").GetComponent<Text>();
@@ -424,6 +478,7 @@ namespace DarkFogTuner
                     SetDraft(i, FromSlider(row.Min, row.Max, row.Log, row.ZeroAtLeft, row.Whole, t));
                     ShowRow(i);
                     ShowPresets();
+                    ShowHints();
                 });
             }
             summaryText = NewText(valueTpl, area, new Vector2(Margin, y - 12f), new Vector2(Width - 2 * Margin, 24f), TextAnchor.MiddleLeft, "");
@@ -432,6 +487,15 @@ namespace DarkFogTuner
             var note = NewText(labelTpl, area, new Vector2(Margin, y - 38f), new Vector2(Width - 2 * Margin, 34f), TextAnchor.UpperLeft, "Applies when you release the mouse. Threat level fills every attack meter once; 100% starts attacks. Hive count and starting hives are fixed at new game.");
             note.horizontalOverflow = HorizontalWrapMode.Wrap;
             note.fontSize = 12;
+            // Hints follow the sliders as they move, before the change is applied.
+            const float HintLine = 16f;
+            hintText = NewText(labelTpl, area, new Vector2(Margin, y - 74f), new Vector2(Width - 2 * Margin, MaxHints * HintLine), TextAnchor.UpperLeft, "");
+            hintText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            hintText.fontSize = 12;
+            hintText.color = Accent;
+            float height = -(y - 74f - MaxHints * HintLine) + 12f;
+            root.sizeDelta = new Vector2(Width, height);
+            Place(area, Vector2.zero, new Vector2(Width, height));
             win.SetActive(false);
         }
 
@@ -664,6 +728,36 @@ namespace DarkFogTuner
                 else yield return code;
             }
             if (!found) throw new InvalidOperationException("DarkFogTuner: tinder launch chance not found; game code changed");
+        }
+
+        [ThreadStatic] static bool relaying;
+
+        // Below x1 a hive skips demand checks; above x1 it runs extra checks, each still bound by the game's relay limits.
+        [HarmonyPrefix, HarmonyPatch(typeof(EnemyDFHiveSystem), nameof(EnemyDFHiveSystem.DetermineRelayDemand))]
+        static bool LandingCheck() => relaying || Plugin.LandingCheckRuns(UnityEngine.Random.value);
+
+        [HarmonyPostfix, HarmonyPatch(typeof(EnemyDFHiveSystem), nameof(EnemyDFHiveSystem.DetermineRelayDemand))]
+        static void ExtraLandings(EnemyDFHiveSystem __instance)
+        {
+            if (relaying || Plugin.LandingPasses() <= 1) return;
+            relaying = true;
+            try { for (int i = 1; i < Plugin.LandingPasses(); i++) __instance.DetermineRelayDemand(); }
+            finally { relaying = false; }
+        }
+
+        // The demand (scaled by the game's max density) and the per-planet cap bound how many relays are out at once.
+        [HarmonyTranspiler, HarmonyPatch(typeof(EnemyDFHiveSystem), nameof(EnemyDFHiveSystem.DetermineRelayDemand))]
+        static IEnumerable<CodeInstruction> RelayLimits(IEnumerable<CodeInstruction> instructions)
+        {
+            var code = instructions.ToList();
+            int density = code.FindIndex(c => c.opcode == OpCodes.Ldfld && c.operand is System.Reflection.FieldInfo f && f.Name == nameof(CombatSettings.maxDensity));
+            int demand = density < 0 ? -1 : code.FindIndex(density, c => c.opcode.Name.StartsWith("stloc"));
+            int hives = code.FindIndex(c => c.opcode == OpCodes.Ldfld && c.operand is System.Reflection.FieldInfo f && f.Name == nameof(StarData.maxHiveCount));
+            int cap = hives < 0 ? -1 : code.FindIndex(hives, c => c.opcode == OpCodes.Mul);
+            if (demand < 0 || cap < 0 || cap < demand) throw new InvalidOperationException("DarkFogTuner: relay demand or planet cap not found; game code changed");
+            code.Insert(cap + 1, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Plugin), nameof(Plugin.ScalePlanetRelayCap))));
+            code.Insert(demand, new CodeInstruction(OpCodes.Call, AccessTools.Method(typeof(Plugin), nameof(Plugin.ScaleRelayDemand))));
+            return code;
         }
 
         [ThreadStatic] static bool producing;

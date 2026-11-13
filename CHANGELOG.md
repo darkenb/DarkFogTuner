@@ -1,3 +1,11 @@
+## 1.4.0
+
+- New slider "Ground bases landing": how often hives send relays to found ground bases on the planets of their star. Above ×1 a hive sends more than one per check and keeps more out; 0 stops new landings.
+- New slider "Ground bases per planet": raises the game's limit of 7 relays per planet and hive, up to ×5.
+- Both are stored per galaxy like the other factors and are part of the presets.
+- Hints below the sliders follow their positions and say what else to change: spread and build speed for more landings, unit capacity and production for bigger fleets, settings that do nothing at Passive, values that stop landings or spread, frame rate at very high capacity, and new hive settings that only affect new hives.
+- The panel grows to fit its rows and hints.
+
 ## 1.3.4
 
 - New slider "Threat level": sets the attack meter of every hive and ground base at once; 100% starts their attacks. Passive levels still never attack.
